@@ -1,0 +1,240 @@
+---
+title: "lab6"
+output: html_document
+date: "2026-04-27"
+---
+
+```{r}
+library(tidyverse)
+
+set.seed(67)
+
+df <- read.csv("movie_boxoffice-1.csv", stringsAsFactors = FALSE)
+
+df_clean <- distinct(df)
+
+sample_200 <- df_clean %>%
+  sample_n(size = 200)
+```
+
+
+### Use the random sample with 200 movies you had from homework 4 to test
+### 1. Whether the average global box office earnings of all movies is different than $90 million.
+H0: μ = 90  
+HA: μ ≠ 90
+```{r}
+obs_mean <- mean(sample_200$Worldwide_Gross, na.rm = TRUE)
+obs_mean
+# simulation / resampling method
+B <- 1000
+
+null_means <- replicate(B, {
+  null_sample <- sample_200$Worldwide_Gross - obs_mean + 90
+  mean(sample(null_sample, size = 200, replace = TRUE), na.rm = TRUE)
+})
+
+hist(null_means,
+     main = "Null Distribution of Mean Worldwide Gross",
+     xlab = "Mean Worldwide Gross")
+
+abline(v = obs_mean, col = "red", lwd = 2)
+
+p_value_sim <- mean(abs(null_means - 90) >= abs(obs_mean - 90))
+p_value_sim
+```
+
+The sample size is large (n=200), so by the Central Limit Theorem, the sampling distribution of the sample mean is approximately normal. Therefore, the theoretical method is appropriate.
+
+```{r}
+# theoretical method
+n <- sum(!is.na(sample_200$Worldwide_Gross))
+s <- sd(sample_200$Worldwide_Gross, na.rm = TRUE)
+se <- s / sqrt(n)
+
+z <- (obs_mean - 90) / se
+z
+
+p_value_theory <- 2 * pnorm(abs(z), lower.tail = FALSE)
+p_value_theory
+
+# built-in function
+t.test(sample_200$Worldwide_Gross, mu = 90)
+```
+The p-values from the simulation method, theoretical method, and t-test are all greater than 0.05. Therefore, we fail to reject the null hypothesis. There is not sufficient evidence to conclude that the average global box office earnings of all movies is different from $90 million.
+
+
+### 2. Whether the average global box office earnings in the summer (June, July and August) is higher than the average global box office earnings in the rest of the year
+H0: μ_summer = μ_rest  
+HA: μ_summer > μ_rest
+```{r}
+summer <- sample_200 %>% 
+  filter(Month %in% c("Jun", "Jul", "Aug"))
+rest <- sample_200 %>% 
+  filter(!(Month %in% c("Jun", "Jul", "Aug")))
+
+obs_diff <- mean(summer$Worldwide_Gross, na.rm = TRUE) -
+            mean(rest$Worldwide_Gross, na.rm = TRUE)
+obs_diff
+B <- 1000
+
+null_diffs <- replicate(B, {
+  shuffled <- sample(sample_200$Worldwide_Gross)
+  
+  summer_sim <- shuffled[sample_200$Month %in% c("Jun","Jul","Aug")]
+  rest_sim <- shuffled[!(sample_200$Month %in% c("Jun","Jul","Aug"))]
+  
+  mean(summer_sim, na.rm = TRUE) - mean(rest_sim, na.rm = TRUE)
+})
+
+hist(null_diffs,
+     main = "Null Distribution of Difference in Mean Worldwide Gross",
+     xlab = "Difference in Means: Summer - Rest")
+
+abline(v = obs_diff, col = "red", lwd = 2)
+
+p_value_sim <- mean(null_diffs >= obs_diff)
+p_value_sim
+
+```
+
+The sample sizes for the summer group and the rest of the year group are large enough, so by the Central Limit Theorem, the sampling distribution of the difference in sample means is approximately normal. Therefore, the theoretical method is appropriate.
+
+```{r}
+# theoretical method
+n_summer <- sum(!is.na(summer$Worldwide_Gross))
+n_rest <- sum(!is.na(rest$Worldwide_Gross))
+
+s_summer <- sd(summer$Worldwide_Gross, na.rm = TRUE)
+s_rest <- sd(rest$Worldwide_Gross, na.rm = TRUE)
+
+se <- sqrt((s_summer^2 / n_summer) + (s_rest^2 / n_rest))
+
+z <- obs_diff / se
+z
+
+p_value_theory <- pnorm(z, lower.tail = FALSE)
+p_value_theory
+
+# built-in function
+t.test(summer$Worldwide_Gross,
+       rest$Worldwide_Gross,
+       alternative = "greater")
+```
+
+The p-values from the simulation method, theoretical method, and t-test are all greater than 0.05. Therefore, we fail to reject the null hypothesis. There is not sufficient evidence to conclude that the average global box office earnings in the summer are higher than the average global box office earnings in the rest of the year.
+
+### 3. Whether the proportion of all movies whose global box office earning exceeds budget is different than 70%.
+H0: p = 0.7  
+HA: p ≠ 0.7
+
+```{r}
+# observed proportion
+phat <- mean(sample_200$Worldwide_Gross > sample_200$Budget, na.rm = TRUE)
+phat
+
+# simulation / resampling method
+B <- 1000
+
+null_props <- replicate(B, {
+  mean(sample(c(TRUE, FALSE),
+              size = 200,
+              replace = TRUE,
+              prob = c(0.7, 0.3)))
+})
+
+hist(null_props,
+     main = "Null Distribution of Proportion (Gross > Budget)",
+     xlab = "Proportion")
+
+abline(v = phat, col = "red", lwd = 2)
+
+p_value_sim <- mean(abs(null_props - 0.7) >= abs(phat - 0.7))
+p_value_sim
+```
+
+The sample size is large (n = 200), and both np₀ = 200(0.7) = 140 and n(1 − p₀) = 60 are greater than 10. Therefore, the sampling distribution of the sample proportion is approximately normal, and the theoretical method is appropriate.
+
+```{r}
+# theoretical method
+n <- 200
+p0 <- 0.7
+
+se <- sqrt(p0 * (1 - p0) / n)
+
+z <- (phat - p0) / se
+z
+
+p_value_theory <- 2 * pnorm(abs(z), lower.tail = FALSE)
+p_value_theory
+
+# built-in
+prop.test(sum(sample_200$Worldwide_Gross > sample_200$Budget, na.rm = TRUE),
+          n,
+          p = 0.7)
+```
+
+The p-values from the simulation method, theoretical method, and proportion test are all greater than 0.05. Therefore, we fail to reject the null hypothesis. There is not sufficient evidence to conclude that the proportion of movies whose global box office earnings exceed their budget is different from 70%.
+
+### 4. Whether the proportion of movies released from 1980 to 1999 whose global box office earning exceeds budget is lower than the proportion of movies released from 2000 and 2018 whose global box office earning exceeds budget
+H0: p_1980_1999 = p_2000_2018  
+HA: p_1980_1999 < p_2000_2018
+```{r}
+old <- sample_200 %>% filter(Year >= 1980 & Year <= 1999)
+new <- sample_200 %>% filter(Year >= 2000 & Year <= 2018)
+
+p_old <- mean(old$Worldwide_Gross > old$Budget, na.rm = TRUE)
+p_new <- mean(new$Worldwide_Gross > new$Budget, na.rm = TRUE)
+
+obs_diff <- p_old - p_new
+obs_diff
+
+# simulation / resampling method
+B <- 1000
+
+null_diffs <- replicate(B, {
+  shuffled <- sample(sample_200$Worldwide_Gross > sample_200$Budget)
+  
+  old_sim <- shuffled[sample_200$Year >= 1980 & sample_200$Year <= 1999]
+  new_sim <- shuffled[sample_200$Year >= 2000 & sample_200$Year <= 2018]
+  
+  mean(old_sim, na.rm = TRUE) - mean(new_sim, na.rm = TRUE)
+})
+
+hist(null_diffs,
+     main = "Null Distribution of Difference in Proportions",
+     xlab = "Difference in Proportions: Old - New")
+
+abline(v = obs_diff, col = "red", lwd = 2)
+
+# one-sided (LESS THAN)
+p_value_sim <- mean(null_diffs <= obs_diff)
+p_value_sim
+```
+
+The sample sizes for both groups are large, and the success-failure condition is satisfied for both groups. Therefore, the sampling distribution of the difference in sample proportions is approximately normal, and the theoretical method is appropriate.
+
+```{r}
+# theoretical method
+n_old <- sum(!is.na(old$Worldwide_Gross))
+n_new <- sum(!is.na(new$Worldwide_Gross))
+
+p_pool <- (sum(old$Worldwide_Gross > old$Budget, na.rm = TRUE) +
+           sum(new$Worldwide_Gross > new$Budget, na.rm = TRUE)) / (n_old + n_new)
+
+se <- sqrt(p_pool * (1 - p_pool) * (1/n_old + 1/n_new))
+
+z <- obs_diff / se
+z
+
+# one-sided (LESS THAN)
+p_value_theory <- pnorm(z, lower.tail = TRUE)
+p_value_theory
+
+# built-in
+prop.test(c(sum(old$Worldwide_Gross > old$Budget, na.rm = TRUE),
+            sum(new$Worldwide_Gross > new$Budget, na.rm = TRUE)),
+          c(n_old, n_new),
+          alternative = "less")
+```
+
+The p-values from the simulation method, theoretical method, and proportion test are all greater than 0.05. Therefore, we fail to reject the null hypothesis. There is not sufficient evidence to conclude that the proportion of movies from 1980 to 1999 whose global box office earnings exceed their budget is lower than that of movies from 2000 to 2018.
