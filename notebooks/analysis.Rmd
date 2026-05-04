@@ -9,7 +9,7 @@ library(tidyverse)
 
 set.seed(67)
 
-df <- read.csv("movie_boxoffice-1.csv", stringsAsFactors = FALSE)
+df <- read.csv("../data/raw/movie_boxoffice-1.csv")
 
 df_clean <- distinct(df)
 
