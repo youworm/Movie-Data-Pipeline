@@ -1,5 +1,5 @@
 ---
-title: "lab6"
+title: "Movie Data Analysis"
 output: html_document
 date: "2026-04-27"
 ---
